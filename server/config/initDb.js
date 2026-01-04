@@ -1,99 +1,98 @@
-const mysql = require('mysql2/promise');
+const initSqlJs = require('sql.js');
+const fs = require('fs');
+const path = require('path');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 async function initializeDatabase() {
-  let connection;
-  
   try {
-    // Connect without specifying database
-    connection = await mysql.createConnection({
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD
-    });
+    // Initialize SQL.js
+    const SQL = await initSqlJs();
+    
+    // Create database file path
+    const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'database.sqlite');
+    
+    // Create new database
+    const db = new SQL.Database();
 
-    console.log('Connected to MySQL server');
+    console.log('Connected to SQLite database');
 
-    // Create database if it doesn't exist
-    await connection.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME}`);
-    console.log(`Database ${process.env.DB_NAME} created or already exists`);
-
-    // Use the database
-    await connection.query(`USE ${process.env.DB_NAME}`);
+    // Enable foreign keys
+    db.run('PRAGMA foreign_keys = ON');
 
     // Create users table
-    await connection.query(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        phone VARCHAR(20),
-        role ENUM('user', 'advocate', 'admin') DEFAULT 'user',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        phone TEXT,
+        role TEXT DEFAULT 'user' CHECK(role IN ('user', 'advocate', 'admin')),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('Users table created');
 
     // Create advocates table
-    await connection.query(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS advocates (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT UNIQUE NOT NULL,
-        specialization VARCHAR(255),
-        experience_years INT,
-        bar_council_number VARCHAR(100) UNIQUE,
-        license_number VARCHAR(100),
-        location VARCHAR(255),
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER UNIQUE NOT NULL,
+        specialization TEXT,
+        experience_years INTEGER,
+        bar_council_number TEXT UNIQUE,
+        license_number TEXT,
+        location TEXT,
         bio TEXT,
-        hourly_rate DECIMAL(10, 2),
-        rating DECIMAL(3, 2) DEFAULT 0.00,
-        total_reviews INT DEFAULT 0,
-        is_verified BOOLEAN DEFAULT FALSE,
-        is_available BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        hourly_rate REAL,
+        rating REAL DEFAULT 0.00,
+        total_reviews INTEGER DEFAULT 0,
+        is_verified INTEGER DEFAULT 0,
+        is_available INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
     console.log('Advocates table created');
 
     // Create services table
-    await connection.query(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS services (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        advocate_id INT NOT NULL,
-        title VARCHAR(255) NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        advocate_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
         description TEXT,
-        service_type ENUM('online', 'offline', 'both') DEFAULT 'both',
-        category VARCHAR(100),
-        price DECIMAL(10, 2),
-        duration_minutes INT,
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        service_type TEXT DEFAULT 'both' CHECK(service_type IN ('online', 'offline', 'both')),
+        category TEXT,
+        price REAL,
+        duration_minutes INTEGER,
+        is_active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (advocate_id) REFERENCES advocates(id) ON DELETE CASCADE
       )
     `);
     console.log('Services table created');
 
     // Create bookings table
-    await connection.query(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS bookings (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        advocate_id INT NOT NULL,
-        service_id INT,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        advocate_id INTEGER NOT NULL,
+        service_id INTEGER,
         booking_date DATE NOT NULL,
         booking_time TIME NOT NULL,
-        service_type ENUM('online', 'offline') NOT NULL,
-        status ENUM('pending', 'confirmed', 'completed', 'cancelled') DEFAULT 'pending',
-        payment_status ENUM('pending', 'paid', 'refunded') DEFAULT 'pending',
-        total_amount DECIMAL(10, 2),
+        service_type TEXT NOT NULL CHECK(service_type IN ('online', 'offline')),
+        status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'confirmed', 'completed', 'cancelled')),
+        payment_status TEXT DEFAULT 'pending' CHECK(payment_status IN ('pending', 'paid', 'refunded')),
+        total_amount REAL,
         notes TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (advocate_id) REFERENCES advocates(id) ON DELETE CASCADE,
         FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE SET NULL
@@ -102,15 +101,15 @@ async function initializeDatabase() {
     console.log('Bookings table created');
 
     // Create reviews table
-    await connection.query(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS reviews (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        booking_id INT UNIQUE NOT NULL,
-        user_id INT NOT NULL,
-        advocate_id INT NOT NULL,
-        rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        booking_id INTEGER UNIQUE NOT NULL,
+        user_id INTEGER NOT NULL,
+        advocate_id INTEGER NOT NULL,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
         comment TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (advocate_id) REFERENCES advocates(id) ON DELETE CASCADE
@@ -118,23 +117,39 @@ async function initializeDatabase() {
     `);
     console.log('Reviews table created');
 
+    // Create triggers for updated_at
+    const tables = ['users', 'advocates', 'services', 'bookings'];
+    tables.forEach(table => {
+      db.run(`
+        CREATE TRIGGER IF NOT EXISTS ${table}_updated_at
+        AFTER UPDATE ON ${table}
+        FOR EACH ROW
+        BEGIN
+          UPDATE ${table} SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+        END
+      `);
+    });
+    console.log('Update triggers created');
+
     // Create admin user (password: admin123)
-    const bcrypt = require('bcryptjs');
     const adminPassword = await bcrypt.hash('admin123', 10);
     
-    await connection.query(`
-      INSERT IGNORE INTO users (name, email, password, role, phone)
-      VALUES ('Admin User', 'admin@bookmyadvocate.com', ?, 'admin', '9999999999')
-    `, [adminPassword]);
+    db.run(`
+      INSERT OR IGNORE INTO users (name, email, password, role, phone)
+      VALUES (?, ?, ?, ?, ?)
+    `, ['Admin User', 'admin@bookmyadvocate.com', adminPassword, 'admin', '9999999999']);
     console.log('Admin user created (email: admin@bookmyadvocate.com, password: admin123)');
 
+    // Save database to file
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(dbPath, buffer);
+    
+    db.close();
+    console.log('Database saved to:', dbPath);
     console.log('Database initialization completed successfully!');
   } catch (error) {
     console.error('Error initializing database:', error);
-  } finally {
-    if (connection) {
-      await connection.end();
-    }
   }
 }
 
