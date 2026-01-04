@@ -1,0 +1,7 @@
+.vercelignore
+node_modules
+.env
+.env.local
+.env.production.local
+.DS_Store
+*.log
