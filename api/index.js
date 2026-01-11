@@ -3,12 +3,12 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-const authRoutes = require('./server/routes/auth');
-const advocateRoutes = require('./server/routes/advocates');
-const serviceRoutes = require('./server/routes/services');
-const bookingRoutes = require('./server/routes/bookings');
-const reviewRoutes = require('./server/routes/reviews');
-const adminRoutes = require('./server/routes/admin');
+const authRoutes = require('../server/routes/auth');
+const advocateRoutes = require('../server/routes/advocates');
+const serviceRoutes = require('../server/routes/services');
+const bookingRoutes = require('../server/routes/bookings');
+const reviewRoutes = require('../server/routes/reviews');
+const adminRoutes = require('../server/routes/admin');
 
 const app = express();
 
@@ -28,14 +28,6 @@ app.use('/api/admin', adminRoutes);
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'BookMyAdvocate API is running' });
-});
-
-// Serve static files from React build
-app.use(express.static(path.join(__dirname, 'client/build')));
-
-// Serve React app for all other routes
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
 });
 
 // Error handling middleware
