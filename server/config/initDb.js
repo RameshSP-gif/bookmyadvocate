@@ -131,14 +131,42 @@ async function initializeDatabase() {
     });
     console.log('Update triggers created');
 
-    // Create admin user (password: admin123)
+    // Create test users
     const adminPassword = await bcrypt.hash('admin123', 10);
+    const userPassword = await bcrypt.hash('password123', 10);
+    const advocatePassword = await bcrypt.hash('password123', 10);
     
+    // Insert admin user
     db.run(`
       INSERT OR IGNORE INTO users (name, email, password, role, phone)
       VALUES (?, ?, ?, ?, ?)
     `, ['Admin User', 'admin@bookmyadvocate.com', adminPassword, 'admin', '9999999999']);
     console.log('Admin user created (email: admin@bookmyadvocate.com, password: admin123)');
+
+    // Insert regular user
+    db.run(`
+      INSERT OR IGNORE INTO users (name, email, password, role, phone)
+      VALUES (?, ?, ?, ?, ?)
+    `, ['John Doe', 'john@example.com', userPassword, 'user', '9876543210']);
+    console.log('Regular user created (email: john@example.com, password: password123)');
+
+    // Insert advocate user
+    db.run(`
+      INSERT OR IGNORE INTO users (name, email, password, role, phone)
+      VALUES (?, ?, ?, ?, ?)
+    `, ['Rajesh Kumar', 'rajesh@example.com', advocatePassword, 'advocate', '9123456789']);
+    console.log('Advocate user created (email: rajesh@example.com, password: password123)');
+
+    // Get advocate user ID and create advocate profile
+    const advocateUserResult = db.exec(`SELECT id FROM users WHERE email = 'rajesh@example.com'`);
+    if (advocateUserResult.length > 0 && advocateUserResult[0].values.length > 0) {
+      const advocateUserId = advocateUserResult[0].values[0][0];
+      db.run(`
+        INSERT OR IGNORE INTO advocates (user_id, specialization, experience_years, location, is_verified, is_available)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [advocateUserId, 'Criminal Law', 5, 'New Delhi', 1, 1]);
+      console.log('Advocate profile created for Rajesh Kumar');
+    }
 
     // Save database to file
     const data = db.export();
