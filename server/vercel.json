@@ -15,11 +15,5 @@
   "env": {
     "NODE_ENV": "production",
     "DB_PATH": "/tmp/database.sqlite"
-  },
-  "functions": {
-    "server.js": {
-      "memory": 1024,
-      "maxDuration": 60
-    }
   }
 }
