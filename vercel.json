@@ -1,39 +1,10 @@
 {
-  "version": 2,
-  "builds": [
+  "buildCommand": "cd client && npm install && npm run build",
+  "outputDirectory": "client/build",
+  "rewrites": [
     {
-      "src": "server/server.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "client/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build"
-      }
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
     }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "server/server.js"
-    },
-    {
-      "src": "/static/(.*)",
-      "dest": "client/build/static/$1"
-    },
-    {
-      "src": "/(.*\\.(js|css|ico|png|jpg|jpeg|svg|json))",
-      "dest": "client/build/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "client/build/index.html"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production",
-    "DB_PATH": "/tmp/database.sqlite",
-    "JWT_SECRET": "bookmyadvocate_jwt_secret_key_2024_vercel_deployment"
-  }
+  ]
 }
